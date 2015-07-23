@@ -1,0 +1,16 @@
+{
+  "uid": "github.com~sourcemint~sm.sync~0",
+  "name": "sm.sync",
+  "version": "0.1.0",
+  "repository": "https://github.com/sourcemint/sm.sync.git",
+  "main": "sm.sync",
+  "bin": {
+    "sm.sync": "./sm.sync"
+  },
+  "dependencies": {
+    "extend": "^2.0.1",
+    "q": "^1.4.1",
+    "q-io": "^1.13.1",
+    "smi-for-git": "0.1.x"
+  }
+}

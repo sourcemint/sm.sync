@@ -1,0 +1,111 @@
+#!/usr/bin/env node
+
+
+exports.for = function (API) {
+
+	var exports = {};
+
+	function formatLogArgs (args) {
+		var allStrings = true;
+		args.forEach(function (arg) {
+			if (!allStrings) return;
+			if (typeof arg !== "string") {
+				allStrings = false;
+			}
+		});
+		if (allStrings) {
+			return args.join(" ");
+		}
+		return (args.length > 1 ? args : args[0]);
+	}
+
+	function log () {
+		if (!API.env.VERBOSE) return;
+		var args = Array.prototype.slice.call(arguments);
+		console.log.call(console, "[sm.expand]", formatLogArgs(args));
+	}
+
+	function findPackageRoot (path) {
+		path = path.replace(/\/package\.json$/, "");
+		return API.QFS.exists(
+			API.PATH.join(path, "package.json")
+		).then(function (exists) {
+			if (exists) {
+				return path;
+			}
+			var newPath = API.PATH.dirname(path);
+			if (newPath === path) {
+				throw new Error("No package.json found in parent tree!");
+			}
+			return findPackageRoot(newPath);
+		});
+	}
+
+	exports.for = function (module) {
+
+		log("CODEBASE", __dirname);
+		log("Using BO_GLOBAL_SYSTEM_CACHE_DIR:", API.env.BO_GLOBAL_SYSTEM_CACHE_DIR);
+
+		var origin = API.env.CWD;
+
+		var sync = function () {
+
+			return findPackageRoot(module.filename).then(function (packageBasePath) {
+
+				return API.CONFIG("file://" + packageBasePath + "/package.json").then(function (config) {
+
+console.log("CONFIG!!", config);
+
+
+				}).then(function () {
+					return {
+						synced: true
+					};
+				});
+			});
+		}
+		return sync;
+	}
+	return exports;
+}
+
+
+if (require.main === module) {
+
+	// Establish container environment for the module.
+
+	const API = {
+		EXTEND: require("extend"),
+		PATH: require("path"),
+		FS: require("fs"),
+		EXEC: require("child_process").exec,
+		SPAWN: require("child_process").spawn,
+		Q: require("q"),
+		QFS: require("q-io/fs"),
+		env: {
+			VERBOSE: process.env.VERBOSE,
+			BO_GLOBAL_SYSTEM_CACHE_DIR: process.env.BO_GLOBAL_SYSTEM_CACHE_DIR,
+			CWD: process.cwd()
+		}
+	};
+
+	API.EXTEND(false, API, {
+		CONFIG: require("pinf.logic-for-json").for(API),
+		GIT_CLONE: require("smi-for-git/api/clone-to").for(API).PLFunction
+	});
+
+	var api = exports.for(API);
+
+	API.Q.when(api.for({
+		filename: process.argv[2] || "./" + API.PATH.basename(API.env.CWD)
+	})()).then(function (info) {
+		if (info.expanded) {
+			process.exit(0);
+		} else {
+			process.exit(1);
+		}
+	}).fail(function (err) {
+		console.error("ERROR:", err.stack || err);
+		process.exit(1);
+	});
+}
